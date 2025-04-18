@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>گانت چارت پویا با تاریخ شمسی</title>
+  <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment-jalaali@0.9.2/build/moment-jalaali.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/persian-date/dist/persian-date.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+  <style>
+    * {
+      font-family: 'peyda(FaNum)';
+    }
+    body {
+      direction: rtl;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    #addTaskBtn {
+      background-color: #28a745;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      margin: 10px auto;
+      display: block;
+      border-radius: 8px;
+      direction: rtl;
+    }
+
+    #taskForm {
+      display: none;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      width: 300px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+
+    label {
+      display: block;
+      margin: 5px;
+    }
+
+    input[type="text"] {
+      width: 90%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin: 10px;
+    }
+
+    #submitBtn {
+      background-color: #007bff;
+      color: white;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      text-align: center;
+      padding: 8px;
+      font-size: 16px;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+
+    .bar {
+      background-color: #007acc;
+      color: #007acc;
+    }
+
+    .filter-btn {
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .month-select {
+      padding: 8px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>گانت چارت فارسی</h2>
+
+<!-- Filter button and month selection -->
+<button class="filter-btn">انتخاب ماه</button>
+<select id="monthSelect" class="month-select">
+  <option value="1">فروردین</option>
+  <option value="2">اردیبهشت</option>
+  <option value="3">خرداد</option>
+  <option value="4">تیر</option>
+  <option value="5">مرداد</option>
+  <option value="6">شهریور</option>
+  <option value="7">مهر</option>
+  <option value="8">آبان</option>
+  <option value="9">آذر</option>
+  <option value="10">دی</option>
+  <option value="11">بهمن</option>
+  <option value="12">اسفند</option>
+</select>
+
+<button id="addTaskBtn">افزودن اکران جدید</button>
+
+<div id="taskForm">
+  <label>عنوان فعالیت:</label>
+  <input type="text" id="titleInput">
+
+  <label>تاریخ شروع:</label>
+  <input type="text" id="startInput">
+
+  <label>تاریخ پایان:</label>
+  <input type="text" id="endInput">
+
+  <button id="submitBtn">ثبت فعالیت</button>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>ردیف</th>
+      <th>عنوان</th>
+      <th>شروع</th>
+      <th>پایان</th>
+      <th>مدت</th>
+      <th colspan="31">فروردین ۱۴۰۴</th>
+    </tr>
+    <tr>
+      <td colspan="5"></td>
+      <script>
+        const daysInMonth = 31;
+        const daysRow = [];
+        for (let i = 1; i <= daysInMonth; i++) {
+          daysRow.push(`<td>${i}</td>`);
+        }
+        document.write(daysRow.join(''));
+      </script>
+    </tr>
+  </thead>
+  <tbody id="taskBody"></tbody>
+</table>
+
+<script>
+  moment.loadPersian({ usePersianDigits: false });
+
+  let startJDate = null;
+  let endJDate = null;
+  let taskCounter = 1;
+  let tasks = []; // Store all tasks
+
+  const months = [
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
+  ];
+
+  function updateTableHeader(month) {
+    const monthName = months[month - 1];
+    const daysInMonth = moment(`1404/${month}/01`, 'jYYYY/jMM/jDD').daysInMonth();
+    const header = document.querySelector('table thead tr:nth-child(1)');
+    header.innerHTML = `
+      <th>ردیف</th>
+      <th>عنوان</th>
+      <th>شروع</th>
+      <th>پایان</th>
+      <th>مدت</th>
+      <th colspan="${daysInMonth}">${monthName} ۱۴۰۴</th>
+    `;
+
+    const daysRow = [];
+    for (let i = 1; i <= daysInMonth; i++) {
+      daysRow.push(`<td>${i}</td>`);
+    }
+    document.querySelector('table thead tr:nth-child(2)').innerHTML = `<td colspan="5"></td>${daysRow.join('')}`;
+  }
+
+  function renderTasksForMonth(month) {
+      const taskBody = document.getElementById('taskBody');
+      taskBody.innerHTML = '';
+      const daysInMonth = moment(`1404/${month}/01`, 'jYYYY/jMM/jDD').daysInMonth();
+
+      let localCounter = 1; // Reset each render
+
+      tasks.forEach(task => {
+        const startMoment = moment(task.startDate, 'jYYYY/jMM/jDD');
+        const endMoment = moment(task.endDate, 'jYYYY/jMM/jDD');
+
+        if (
+          (startMoment.jMonth() + 1 === month || endMoment.jMonth() + 1 === month) ||
+          (startMoment.isBefore(moment(`1404/${month}/01`, 'jYYYY/jMM/jDD').endOf('jMonth')) &&
+            endMoment.isAfter(moment(`1404/${month}/01`, 'jYYYY/jMM/jDD').startOf('jMonth')))
+        ) {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${localCounter++}</td>
+            <td>${task.title}</td>
+            <td>${task.startDate}</td>
+            <td>${task.endDate}</td>
+            <td>${task.duration}</td>
+          `;
+
+          for (let i = 1; i <= daysInMonth; i++) {
+            const currentDate = moment(`1404/${month}/${i}`, 'jYYYY/jMM/jDD');
+            const cell = document.createElement('td');
+
+            if (currentDate.isBetween(startMoment, endMoment, null, '[]')) {
+              cell.className = 'bar';
+              cell.textContent = '■';
+            }
+            row.appendChild(cell);
+          }
+
+          taskBody.appendChild(row);
+        }
+      });
+    }
+
+
+  $(document).ready(function () {
+    $('#startInput').persianDatepicker({
+      format: 'YYYY/MM/DD',
+      initialValue: false,
+      calendar: {
+        persian: { locale: 'fa' }
+      },
+      onSelect: function (unix) {
+        startJDate = moment(unix).add(1, 'day').format('jYYYY/jMM/jDD');
+      }
+    });
+
+    $('#endInput').persianDatepicker({
+      format: 'YYYY/MM/DD',
+      initialValue: false,
+      calendar: {
+        persian: { locale: 'fa' }
+      },
+      onSelect: function (unix) {
+        endJDate = moment(unix).add(1, 'day').format('jYYYY/jMM/jDD');
+      }
+    });
+
+    $('#addTaskBtn').click(function () {
+      $('#taskForm').slideToggle();
+    });
+
+    $('#submitBtn').click(function () {
+      const title = $('#titleInput').val();
+
+      if (!title || !startJDate || !endJDate) {
+        alert('لطفاً همه فیلدها را پر کنید');
+        return;
+      }
+
+      const startMoment = moment(startJDate, 'jYYYY/jMM/jDD');
+      const endMoment = moment(endJDate, 'jYYYY/jMM/jDD');
+      const duration = endMoment.diff(startMoment, 'days') + 1;
+
+      tasks.push({
+        title,
+        startDate: startJDate,
+        endDate: endJDate,
+        duration
+      });
+
+      $('#titleInput').val('');
+      $('#startInput').val('');
+      $('#endInput').val('');
+      startJDate = null;
+      endJDate = null;
+      $('#taskForm').slideUp();
+
+      const selectedMonth = parseInt($('#monthSelect').val());
+      updateTableHeader(selectedMonth);
+      renderTasksForMonth(selectedMonth);
+    });
+
+    $('#monthSelect').change(function () {
+      const selectedMonth = parseInt($(this).val());
+      updateTableHeader(selectedMonth);
+      renderTasksForMonth(selectedMonth);
+    });
+
+    // Initial load for فروردین
+    updateTableHeader(1);
+    renderTasksForMonth(1);
+  });
+</script>
+
+</body>
+</html>
